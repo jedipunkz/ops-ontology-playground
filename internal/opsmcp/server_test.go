@@ -92,3 +92,30 @@ func TestRecordToolReportsRejectionAsToolError(t *testing.T) {
 		t.Fatal("tool accepted references to different applications")
 	}
 }
+
+func TestToolsAdvertiseReadOnlyHints(t *testing.T) {
+	t.Parallel()
+
+	result, err := connect(t, "http://127.0.0.1:1/ops").ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{
+		"describe_ontology":            true,
+		"list_hypotheses":              true,
+		"search_operational_graph":     true,
+		"record_root_cause_hypothesis": false,
+	}
+	if len(result.Tools) != len(want) {
+		t.Fatalf("tool count = %d, want %d", len(result.Tools), len(want))
+	}
+	for _, tool := range result.Tools {
+		readOnly, ok := want[tool.Name]
+		if !ok {
+			t.Fatalf("unexpected tool %q", tool.Name)
+		}
+		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint != readOnly {
+			t.Fatalf("%s readOnlyHint = %+v, want %v", tool.Name, tool.Annotations, readOnly)
+		}
+	}
+}

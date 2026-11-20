@@ -161,6 +161,49 @@ LIMIT 100
 	return c.Query(ctx, query)
 }
 
+// DescribeOntology returns the classes and properties of the ops namespace so
+// an agent can learn the schema from the graph instead of from its prompt.
+func (c *Client) DescribeOntology(ctx context.Context) (QueryResult, error) {
+	return c.Query(ctx, fmt.Sprintf(`
+PREFIX ops:  <%s>
+PREFIX owl:  <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?term ?kind ?label ?domain ?range
+WHERE {
+  VALUES ?kind { owl:Class owl:ObjectProperty owl:DatatypeProperty }
+  ?term a ?kind .
+  FILTER(STRSTARTS(STR(?term), STR(ops:)))
+  OPTIONAL { ?term rdfs:label ?label }
+  OPTIONAL { ?term rdfs:domain ?domain }
+  OPTIONAL { ?term rdfs:range ?range }
+}
+ORDER BY ?kind ?term
+LIMIT 200
+`, opsNamespace))
+}
+
+// ListHypotheses returns hypotheses previously recorded for an incident.
+func (c *Client) ListHypotheses(ctx context.Context, incidentID string) (QueryResult, error) {
+	if !slugPattern.MatchString(incidentID) {
+		return QueryResult{}, errors.New("incident ID must be a lowercase slug")
+	}
+	return c.Query(ctx, fmt.Sprintf(`
+PREFIX ops: <%s>
+SELECT ?hypothesis ?deployment ?summary ?evidence ?confidence ?recordedAt
+WHERE {
+  ?hypothesis a ops:Hypothesis ;
+              ops:aboutIncident %s ;
+              ops:relatedDeployment ?deployment ;
+              ops:summary ?summary ;
+              ops:evidence ?evidence ;
+              ops:confidence ?confidence ;
+              ops:recordedAt ?recordedAt .
+}
+ORDER BY DESC(?recordedAt)
+LIMIT 50
+`, opsNamespace, iri(opsNamespace+incidentID)))
+}
+
 func (c *Client) RecordHypothesis(ctx context.Context, hypothesis Hypothesis) (id string, retErr error) {
 	if !slugPattern.MatchString(hypothesis.IncidentID) {
 		return "", errors.New("incident ID must be a lowercase slug")

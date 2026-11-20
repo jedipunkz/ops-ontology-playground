@@ -305,3 +305,40 @@ func TestSparqlLiteralRejectsUnsupportedControlCharacters(t *testing.T) {
 func ioReadAll(r *http.Request) ([]byte, error) {
 	return io.ReadAll(r.Body)
 }
+
+func TestListHypothesesRejectsSPARQLInput(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient("http://localhost:3030/ops")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.ListHypotheses(context.Background(), "incident-1> } DELETE WHERE { ?s ?p ?o } #")
+	if err == nil {
+		t.Fatal("ListHypotheses accepted invalid slug input")
+	}
+}
+
+func TestListHypothesesQueriesIncidentIRI(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		if !strings.Contains(string(body), "ops:aboutIncident <https://example.com/ops#incident-5377>") {
+			t.Errorf("query does not filter by incident IRI: %s", body)
+		}
+		_, _ = w.Write([]byte(`{"results":{"bindings":[]}}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL + "/ops")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.ListHypotheses(context.Background(), "incident-5377"); err != nil {
+		t.Fatal(err)
+	}
+}
