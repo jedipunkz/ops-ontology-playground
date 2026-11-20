@@ -1,0 +1,48 @@
+@prefix ops: <https://example.com/ops#> .
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ops:HypothesisShape a sh:NodeShape ;
+    sh:targetClass ops:Hypothesis ;
+    sh:property [
+        sh:path ops:aboutIncident ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class ops:Incident
+    ] ;
+    sh:property [
+        sh:path ops:relatedDeployment ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class ops:Deployment
+    ] ;
+    sh:property [
+        sh:path ops:summary ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 10 ;
+        sh:maxLength 500
+    ] ;
+    sh:property [
+        sh:path ops:evidence ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 10 ;
+        sh:maxLength 2000
+    ] ;
+    sh:property [
+        sh:path ops:confidence ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxInclusive 1
+    ] ;
+    sh:property [
+        sh:path ops:recordedAt ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime
+    ] .

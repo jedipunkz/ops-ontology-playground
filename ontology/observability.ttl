@@ -1,0 +1,74 @@
+@prefix ops:  <https://example.com/ops#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<https://example.com/ops> a owl:Ontology ;
+    rdfs:label "Local operational observability ontology" .
+
+ops:Application a owl:Class ;
+    rdfs:label "Application" .
+
+ops:Deployment a owl:Class ;
+    rdfs:label "Deployment" .
+
+ops:Incident a owl:Class ;
+    rdfs:label "Incident" .
+
+ops:Hypothesis a owl:Class ;
+    rdfs:label "Root-cause hypothesis" .
+
+ops:affects a owl:ObjectProperty ;
+    rdfs:domain ops:Incident ;
+    rdfs:range ops:Application .
+
+ops:target a owl:ObjectProperty ;
+    rdfs:domain ops:Deployment ;
+    rdfs:range ops:Application .
+
+ops:aboutIncident a owl:ObjectProperty ;
+    rdfs:domain ops:Hypothesis ;
+    rdfs:range ops:Incident .
+
+ops:relatedDeployment a owl:ObjectProperty ;
+    rdfs:domain ops:Hypothesis ;
+    rdfs:range ops:Deployment .
+
+ops:ownedBy a owl:DatatypeProperty ;
+    rdfs:domain ops:Application ;
+    rdfs:range rdfs:Literal .
+
+ops:deployedIn a owl:DatatypeProperty ;
+    rdfs:domain ops:Application ;
+    rdfs:range rdfs:Literal .
+
+ops:version a owl:DatatypeProperty ;
+    rdfs:domain ops:Deployment ;
+    rdfs:range rdfs:Literal .
+
+ops:deployedAt a owl:DatatypeProperty ;
+    rdfs:domain ops:Deployment ;
+    rdfs:range rdfs:Literal .
+
+ops:startedAt a owl:DatatypeProperty ;
+    rdfs:domain ops:Incident ;
+    rdfs:range rdfs:Literal .
+
+ops:severity a owl:DatatypeProperty ;
+    rdfs:domain ops:Incident ;
+    rdfs:range rdfs:Literal .
+
+ops:summary a owl:DatatypeProperty ;
+    rdfs:range rdfs:Literal .
+
+ops:evidence a owl:DatatypeProperty ;
+    rdfs:domain ops:Hypothesis ;
+    rdfs:range rdfs:Literal .
+
+ops:confidence a owl:DatatypeProperty ;
+    rdfs:domain ops:Hypothesis ;
+    rdfs:range rdfs:Literal .
+
+ops:recordedAt a owl:DatatypeProperty ;
+    rdfs:domain ops:Hypothesis ;
+    rdfs:range rdfs:Literal .

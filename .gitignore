@@ -1,0 +1,4 @@
+.env
+/fuseki-data/
+/data/
+.DS_Store

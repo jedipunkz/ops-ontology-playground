@@ -1,0 +1,32 @@
+@prefix ops:  <https://example.com/ops#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+ops:checkout a ops:Application ;
+    ops:ownedBy "Commerce" ;
+    ops:deployedIn "us-east-1" .
+
+ops:payments a ops:Application ;
+    ops:ownedBy "Payments" ;
+    ops:deployedIn "us-east-1" .
+
+ops:checkout-v42 a ops:Deployment ;
+    ops:target ops:checkout ;
+    ops:version "v42" ;
+    ops:deployedAt "2026-11-18T10:15:00Z"^^xsd:dateTime .
+
+ops:checkout-v41 a ops:Deployment ;
+    ops:target ops:checkout ;
+    ops:version "v41" ;
+    ops:deployedAt "2026-11-17T08:00:00Z"^^xsd:dateTime .
+
+ops:incident-5377 a ops:Incident ;
+    ops:affects ops:checkout ;
+    ops:severity "SEV-2" ;
+    ops:summary "Checkout latency increased after the latest deployment." ;
+    ops:startedAt "2026-11-18T10:23:00Z"^^xsd:dateTime .
+
+ops:incident-5351 a ops:Incident ;
+    ops:affects ops:payments ;
+    ops:severity "SEV-3" ;
+    ops:summary "Payment retries increased during a downstream timeout." ;
+    ops:startedAt "2026-11-17T14:30:00Z"^^xsd:dateTime .

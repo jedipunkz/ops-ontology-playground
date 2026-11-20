@@ -1,0 +1,24 @@
+@prefix :       <#> .
+@prefix fuseki: <http://jena.apache.org/fuseki#> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix ja:     <http://jena.hpl.hp.com/2005/11/Assembler#> .
+
+[] rdf:type fuseki:Server ;
+   fuseki:services ( :opsService ) ;
+.
+
+:opsService rdf:type fuseki:Service ;
+    fuseki:name "ops" ;
+    fuseki:serviceQuery "query" ;
+    fuseki:serviceUpdate "update" ;
+    fuseki:serviceReadWriteGraphStore "data" ;
+    fuseki:endpoint [
+        fuseki:operation fuseki:shacl ;
+        fuseki:name "shacl"
+    ] ;
+    fuseki:dataset :opsDataset ;
+.
+
+:opsDataset rdf:type ja:DatasetTDB2 ;
+    ja:location "/fuseki/databases/ops" ;
+.
