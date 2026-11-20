@@ -1,4 +1,4 @@
-.PHONY: up down seed agent agent-gemini test
+.PHONY: up down seed demo test
 
 up:
 	docker compose up --build -d
@@ -6,14 +6,13 @@ up:
 down:
 	docker compose down
 
+# Recreates the ops database. Deletes every recorded hypothesis.
 seed:
 	go run ./cmd/seed
 
-agent:
-	go run ./cmd/agent console
-
-agent-gemini:
-	MODEL_PROVIDER=gemini go run ./cmd/agent console
+# Runs Claude Code headless three times. Uses your Claude Code quota.
+demo:
+	./scripts/demo.sh
 
 test:
 	go test ./...

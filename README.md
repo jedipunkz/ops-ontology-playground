@@ -3,87 +3,80 @@
 A local playground for the ontology-driven observability pattern described by
 [Netflix TechBlog](https://netflixtechblog.com/ontology-driven-observability-building-an-end-to-end-knowledge-graph-at-netflix-scale-421392cf5adf).
 
-This project does not run Netflix's QuipuDB. QuipuDB is described as a
-homegrown Netflix database and its implementation is not available here.
-Instead, this playground uses Apache Jena Fuseki as a local RDF/SPARQL store,
-an operational ontology in RDF/OWL, and SHACL validation before an agent writes
-a finding.
+This project does not run Netflix's QuipuDB, which is not available outside
+Netflix. Instead, it stores a small operational ontology in
+[TypeDB](https://typedb.com/) and lets an AI agent (Claude Code) read and
+write it through an MCP server.
 
 ## What runs
 
-- Apache Jena Fuseki 6.2.0 stores the local knowledge graph.
-- A Go ADK agent reads incidents and deployments through a constrained SPARQL
-  query tool.
-- Ollama runs the default language model locally; Gemini is an optional provider.
-- The agent can propose a root-cause hypothesis. Go validates the referenced
-  incident and deployment, writes the candidate to a temporary named graph,
-  validates it against SHACL, then promotes it to the default graph.
-- `cmd/seed` loads synthetic operational data. It is safe to run repeatedly.
+- TypeDB CE 3.14.2 stores the knowledge graph. `ontology/schema.tql` defines
+  the ontology: applications, deployments, incidents, and root-cause
+  hypotheses, with constraints such as `@key`, `@card`, `@regex`, `@values`
+  and `@range`. TypeDB rejects writes that violate them.
+- `cmd/ops-mcp` is an MCP server (stdio) for Claude Code or any MCP client.
+  The agent never sends TypeQL; each tool takes typed fields and the server
+  builds fixed queries.
 
-The default setup needs no API key or Google Cloud project. Ollama runs locally
-and the client uses its OpenAI-compatible endpoint. Fuseki is bound to
-`127.0.0.1` and has no authentication; do not expose this demo endpoint to an
-untrusted network.
+| Tool | Kind | Description |
+|---|---|---|
+| `describe_ontology` | read | Returns the TypeDB schema, so the agent learns the ontology from the database |
+| `search_operational_graph` | read | Returns incidents and deployments for an application |
+| `list_hypotheses` | read | Returns hypotheses earlier sessions recorded for an incident |
+| `record_root_cause_hypothesis` | write | Inserts a hypothesis in one transaction; the incident and deployment must share an application |
+
+TypeDB's HTTP API is published only on `127.0.0.1:8000`. The container runs
+as an unprivileged user, and TypeDB's default usage and error reporting is
+turned off in `compose.yaml`. The MCP server only accepts a loopback TypeDB
+URL.
 
 ## Requirements
 
 - Go 1.26.10 or later
 - Docker Compose
-- [Ollama](https://ollama.com/download)
-- About 2.5 GB of disk space for the default `qwen3:4b` model
+- [Claude Code](https://code.claude.com/docs/en/mcp) and `jq` for the demo
 
 ## Run
 
-Start Ollama (for example, `ollama serve` in another terminal) and download a
-local model:
+Set the TypeDB credentials. TypeDB CE starts with the vendor default
+`admin` / `password`; use it only for this local sample data.
 
 ```sh
-ollama pull qwen3:4b
+export TYPEDB_USERNAME=admin TYPEDB_PASSWORD=password
 ```
 
-Start the local graph store:
+Start TypeDB and load the ontology and sample data. `make seed` recreates
+the `ops` database, which deletes every recorded hypothesis.
 
 ```sh
-docker compose up --build -d
+make up
+make seed
 ```
 
-Load the sample graph:
+Run the demo. It calls `claude -p` three times (this uses your Claude Code
+quota) and checks the database after each run:
+
+1. Only the read tools are allowed. The agent's write is denied, and no
+   hypothesis exists.
+2. All tools are allowed. The agent records one hypothesis.
+3. All tools are allowed. The agent reads the hypothesis from run 2 and does
+   not record a duplicate.
 
 ```sh
-go run ./cmd/seed
+make demo
 ```
 
-Run the ADK agent:
+The demo passes `--permission-mode dontAsk`, so any tool call that is not
+allowlisted is denied instead of prompting.
+
+To use the server interactively, start `claude` in this directory and enable
+the `ops-ontology` server from `.mcp.json`.
+
+Stop TypeDB without deleting its data:
 
 ```sh
-go run ./cmd/agent console
+make down
 ```
-
-Try asking:
-
-> Why did checkout have a SEV-2 incident, and which deployment is a plausible
-> cause? Record a hypothesis with the evidence from the graph.
-
-Inspect the graph and issue SPARQL queries at <http://localhost:3030/>.
-The dataset endpoint is `ops`; for example, its query endpoint is
-<http://localhost:3030/ops/query>.
-
-Stop Fuseki without deleting its persisted graph:
-
-```sh
-docker compose down
-```
-
-### Optional: use Gemini instead of Ollama
-
-```sh
-MODEL_PROVIDER=gemini GOOGLE_API_KEY="your-gemini-api-key" \
-  go run ./cmd/agent console
-```
-
-The Ollama model name and local endpoint can be overridden with `OLLAMA_MODEL`
-and `OLLAMA_BASE_URL`. The endpoint must be a loopback HTTP URL ending in `/v1`.
-The ADK Go OpenAI-compatible model connector is experimental.
 
 ## Verify
 
@@ -91,15 +84,13 @@ The ADK Go OpenAI-compatible model connector is experimental.
 go test ./...
 ```
 
-The tests use HTTP test servers and do not call a model, require Ollama, or
-require Docker.
+The tests use HTTP test servers and in-memory MCP transports. They do not
+require Docker or a model.
 
 ## Scope and limitations
 
 - The data is synthetic and represents one small incident/deployment scenario.
-- The write tool accepts structured fields, not arbitrary SPARQL from the
-  model. It only records hypotheses after checking the referenced entities.
-- SHACL validates the proposed hypothesis shape. It does not prove that the
+- The schema validates the shape of a hypothesis. It does not prove that the
   hypothesis is causally correct; evidence remains visible for human review.
 - This is a local learning sample, not a production incident-management
   system or a QuipuDB compatibility implementation.
@@ -107,9 +98,8 @@ require Docker.
 ## References
 
 - [Netflix: Ontology-Driven Observability](https://netflixtechblog.com/ontology-driven-observability-building-an-end-to-end-knowledge-graph-at-netflix-scale-421392cf5adf)
-- [Apache Jena Fuseki Docker tools](https://jena.apache.org/documentation/fuseki2/fuseki-docker.html)
-- [Apache Jena SHACL](https://jena.apache.org/documentation/shacl)
-- [Google ADK for Go](https://github.com/google/adk-go)
-- [ADK Go OpenAI-compatible model connector](https://adk.dev/agents/models/openai/)
-- [Ollama OpenAI-compatible API](https://docs.ollama.com/api/openai-compatibility)
-- [Ollama Qwen 3 models](https://ollama.com/library/qwen3)
+- [TypeDB HTTP API](https://typedb.com/docs/reference/typedb-http-api/)
+- [TypeQL annotations](https://typedb.com/docs/typeql-reference/annotations/)
+- [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
+- [Claude Code MCP](https://code.claude.com/docs/en/mcp)
+- [Claude Code headless mode](https://code.claude.com/docs/en/headless)

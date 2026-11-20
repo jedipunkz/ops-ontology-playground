@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ops-ontology": {
+      "command": "go",
+      "args": ["run", "./cmd/ops-mcp"],
+      "env": {
+        "TYPEDB_URL": "http://127.0.0.1:8000",
+        "TYPEDB_USERNAME": "${TYPEDB_USERNAME}",
+        "TYPEDB_PASSWORD": "${TYPEDB_PASSWORD}"
+      }
+    }
+  }
+}

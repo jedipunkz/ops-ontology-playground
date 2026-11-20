@@ -1,0 +1,56 @@
+define
+
+  # Identifiers are lowercase slugs so tools can reference entities safely.
+  attribute slug, value string @regex("^[a-z][a-z0-9-]{0,62}$");
+  attribute team, value string;
+  attribute region, value string;
+  attribute version, value string;
+  attribute severity, value string @values("SEV-1", "SEV-2", "SEV-3", "SEV-4");
+  attribute summary, value string;
+  attribute evidence, value string;
+  attribute confidence, value double @range(0.0..1.0);
+  attribute deployed-at, value datetime-tz;
+  attribute started-at, value datetime-tz;
+  attribute recorded-at, value datetime-tz;
+
+  entity application,
+    owns slug @key,
+    owns team @card(1..1),
+    owns region @card(1..1),
+    plays deployment-target:application,
+    plays impact:application;
+
+  entity deployment,
+    owns slug @key,
+    owns version @card(1..1),
+    owns deployed-at @card(1..1),
+    plays deployment-target:deployment,
+    plays root-cause-hypothesis:deployment;
+
+  entity incident,
+    owns slug @key,
+    owns severity @card(1..1),
+    owns summary @card(1..1),
+    owns started-at @card(1..1),
+    plays impact:incident,
+    plays root-cause-hypothesis:incident;
+
+  # A deployment targets exactly one application.
+  relation deployment-target,
+    relates deployment @card(1..1),
+    relates application @card(1..1);
+
+  # An incident affects an application.
+  relation impact,
+    relates incident @card(1..1),
+    relates application @card(1..1);
+
+  # An agent's hypothesis links exactly one incident to one deployment.
+  relation root-cause-hypothesis,
+    relates incident @card(1..1),
+    relates deployment @card(1..1),
+    owns slug @key,
+    owns summary @card(1..1),
+    owns evidence @card(1..1),
+    owns confidence @card(1..1),
+    owns recorded-at @card(1..1);
