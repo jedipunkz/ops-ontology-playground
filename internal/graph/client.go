@@ -138,14 +138,15 @@ func (c *Client) SearchApplication(ctx context.Context, application string) (Que
 	appIRI := iri(opsNamespace + application)
 	query := fmt.Sprintf(`
 PREFIX ops: <%s>
-SELECT ?incident ?severity ?incidentSummary ?deployment ?version ?deployedAt
+SELECT ?incident ?severity ?incidentSummary ?incidentStartedAt ?deployment ?version ?deployedAt
 WHERE {
   %s a ops:Application .
   OPTIONAL {
     ?incident a ops:Incident ;
               ops:affects %s ;
               ops:severity ?severity ;
-              ops:summary ?incidentSummary .
+              ops:summary ?incidentSummary ;
+              ops:startedAt ?incidentStartedAt .
   }
   OPTIONAL {
     ?deployment a ops:Deployment ;
@@ -304,8 +305,16 @@ func (c *Client) validateGraph(ctx context.Context, graphIRI string) error {
 }
 
 func (c *Client) request(ctx context.Context, method, path, contentType, accept string, body []byte) ([]byte, error) {
+	relative, err := url.Parse(path)
+	if err != nil {
+		return nil, fmt.Errorf("parse Fuseki endpoint path: %w", err)
+	}
+	if relative.IsAbs() || relative.Host != "" || relative.Fragment != "" {
+		return nil, errors.New("Fuseki endpoint path must be relative")
+	}
 	endpoint := *c.baseURL
-	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + path
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + relative.Path
+	endpoint.RawQuery = relative.RawQuery
 	request, err := http.NewRequestWithContext(ctx, method, endpoint.String(), bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create Fuseki request: %w", err)

@@ -48,12 +48,24 @@ func TestSearchApplicationUsesParameterizedSlugAndParsesBindings(t *testing.T) {
 		if !strings.Contains(string(body), "<https://example.com/ops#checkout>") {
 			t.Errorf("query does not contain the expected application IRI: %s", body)
 		}
+		if !strings.Contains(string(body), "ops:startedAt ?incidentStartedAt") {
+			t.Errorf("query does not return incident start time needed to compare deployment timing: %s", body)
+		}
 		w.Header().Set("Content-Type", "application/sparql-results+json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"head": map[string]any{"vars": []string{"incident"}},
 			"results": map[string]any{
 				"bindings": []map[string]any{
-					{"incident": map[string]string{"type": "uri", "value": "https://example.com/ops#incident-5377"}},
+					{
+						"incident": map[string]string{
+							"type":  "uri",
+							"value": "https://example.com/ops#incident-5377",
+						},
+						"incidentStartedAt": map[string]string{
+							"type":  "literal",
+							"value": "2026-11-18T10:23:00Z",
+						},
+					},
 				},
 			},
 		})
@@ -74,6 +86,9 @@ func TestSearchApplicationUsesParameterizedSlugAndParsesBindings(t *testing.T) {
 	if got := result.Results.Bindings[0]["incident"].Value; got != "https://example.com/ops#incident-5377" {
 		t.Fatalf("incident IRI = %q", got)
 	}
+	if got := result.Results.Bindings[0]["incidentStartedAt"].Value; got != "2026-11-18T10:23:00Z" {
+		t.Fatalf("incident start time = %q", got)
+	}
 }
 
 func TestSearchApplicationRejectsSPARQLInput(t *testing.T) {
@@ -86,6 +101,40 @@ func TestSearchApplicationRejectsSPARQLInput(t *testing.T) {
 	_, err = client.SearchApplication(context.Background(), "checkout> } DELETE WHERE { ?s ?p ?o } #")
 	if err == nil {
 		t.Fatal("SearchApplication accepted invalid slug input")
+	}
+}
+
+func TestLoadTurtleTargetsDefaultGraphParameter(t *testing.T) {
+	t.Parallel()
+
+	const turtle = "@prefix ops: <https://example.com/ops#> ."
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ops/data" {
+			t.Errorf("request path = %q, want /ops/data", r.URL.Path)
+		}
+		if _, ok := r.URL.Query()["default"]; !ok {
+			t.Errorf("query = %q, want default graph parameter", r.URL.RawQuery)
+		}
+		if got := r.Header.Get("Content-Type"); got != "text/turtle" {
+			t.Errorf("Content-Type = %q, want text/turtle", got)
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		if got := string(body); got != turtle {
+			t.Errorf("body = %q, want %q", got, turtle)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL + "/ops")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.LoadTurtle(context.Background(), []byte(turtle)); err != nil {
+		t.Fatal(err)
 	}
 }
 
