@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ops-ontology": {
+      "command": "go",
+      "args": ["run", "./cmd/ops-mcp"],
+      "env": {
+        "FUSEKI_URL": "http://127.0.0.1:3030/ops"
+      }
+    }
+  }
+}
