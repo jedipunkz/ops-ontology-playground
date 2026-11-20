@@ -9,12 +9,11 @@ import (
 	"google.golang.org/adk/v2/agent/llmagent"
 	"google.golang.org/adk/v2/cmd/launcher"
 	"google.golang.org/adk/v2/cmd/launcher/full"
-	"google.golang.org/adk/v2/model/gemini"
 	"google.golang.org/adk/v2/tool"
 	"google.golang.org/adk/v2/tool/functiontool"
-	"google.golang.org/genai"
 
 	"github.com/jedipunkz/ops-ontology-playground/internal/graph"
+	"github.com/jedipunkz/ops-ontology-playground/internal/modelconfig"
 )
 
 type SearchArgs struct {
@@ -30,10 +29,6 @@ type RecordHypothesisArgs struct {
 }
 
 func main() {
-	apiKey := os.Getenv("GOOGLE_API_KEY")
-	if apiKey == "" {
-		log.Fatal("GOOGLE_API_KEY is required to run the LLM agent; graph storage itself does not require it")
-	}
 	baseURL := os.Getenv("FUSEKI_URL")
 	if baseURL == "" {
 		baseURL = "http://127.0.0.1:3030/ops"
@@ -43,9 +38,9 @@ func main() {
 		log.Fatal(err)
 	}
 	ctx := context.Background()
-	model, err := gemini.NewModel(ctx, "gemini-flash-latest", &genai.ClientConfig{APIKey: apiKey})
+	model, err := modelconfig.New(ctx, os.Getenv)
 	if err != nil {
-		log.Fatalf("create Gemini model: %v", err)
+		log.Fatal(err)
 	}
 
 	searchTool, err := functiontool.New(
