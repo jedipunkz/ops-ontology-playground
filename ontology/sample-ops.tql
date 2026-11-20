@@ -1,0 +1,17 @@
+insert
+  $checkout isa application, has slug "checkout", has team "Commerce", has region "us-east-1";
+  $payments isa application, has slug "payments", has team "Payments", has region "us-east-1";
+
+  $v42 isa deployment, has slug "checkout-v42", has version "v42", has deployed-at 2026-11-18T10:15:00Z;
+  $v41 isa deployment, has slug "checkout-v41", has version "v41", has deployed-at 2026-11-17T08:00:00Z;
+  deployment-target (deployment: $v42, application: $checkout);
+  deployment-target (deployment: $v41, application: $checkout);
+
+  $i5377 isa incident, has slug "incident-5377", has severity "SEV-2",
+    has summary "Checkout latency increased after the latest deployment.",
+    has started-at 2026-11-18T10:23:00Z;
+  $i5351 isa incident, has slug "incident-5351", has severity "SEV-3",
+    has summary "Payment retries increased during a downstream timeout.",
+    has started-at 2026-11-17T14:30:00Z;
+  impact (incident: $i5377, application: $checkout);
+  impact (incident: $i5351, application: $payments);

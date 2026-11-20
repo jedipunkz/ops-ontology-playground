@@ -1,36 +1,46 @@
+// Command seed recreates the ops database with the schema and sample data.
+// It deletes every hypothesis recorded so far.
 package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
 
-	"github.com/jedipunkz/ops-ontology-playground/internal/graph"
+	"github.com/jedipunkz/ops-ontology-playground/internal/config"
+	"github.com/jedipunkz/ops-ontology-playground/internal/typedb"
 )
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	baseURL := os.Getenv("FUSEKI_URL")
-	if baseURL == "" {
-		baseURL = "http://127.0.0.1:3030/ops"
-	}
-	client, err := graph.NewClient(baseURL)
+	store, err := config.NewStore()
 	if err != nil {
 		fatal(err)
 	}
-	for _, path := range []string{"ontology/observability.ttl", "ontology/sample-ops.ttl"} {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			fatal(fmt.Errorf("read %s: %w", path, err))
-		}
-		if err := client.LoadTurtle(ctx, data); err != nil {
-			fatal(fmt.Errorf("load %s: %w", path, err))
-		}
+	schema, err := os.ReadFile("ontology/schema.tql")
+	if err != nil {
+		fatal(err)
 	}
-	fmt.Println("Loaded operational ontology and sample data.")
+	data, err := os.ReadFile("ontology/sample-ops.tql")
+	if err != nil {
+		fatal(err)
+	}
+	// TypeDB may still be starting right after `make up`.
+	for {
+		err = store.Reset(ctx, string(schema), string(data))
+		if !errors.Is(err, typedb.ErrUnavailable) || ctx.Err() != nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		fatal(err)
+	}
+	fmt.Println("Recreated the ops database with the schema and sample data.")
 }
 
 func fatal(err error) {

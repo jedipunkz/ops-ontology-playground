@@ -4,7 +4,9 @@
       "command": "go",
       "args": ["run", "./cmd/ops-mcp"],
       "env": {
-        "FUSEKI_URL": "http://127.0.0.1:3030/ops"
+        "TYPEDB_URL": "http://127.0.0.1:8000",
+        "TYPEDB_USERNAME": "${TYPEDB_USERNAME}",
+        "TYPEDB_PASSWORD": "${TYPEDB_PASSWORD}"
       }
     }
   }

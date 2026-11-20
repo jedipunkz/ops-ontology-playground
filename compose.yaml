@@ -1,24 +1,22 @@
 services:
-  fuseki:
+  typedb:
     build:
-      context: ./docker/fuseki
+      context: ./docker/typedb
+    # Only the HTTP API is published, and only on loopback. The gRPC port
+    # (1729) and the monitoring port (4104) stay inside the container.
     ports:
-      - "127.0.0.1:3030:3030"
+      - "127.0.0.1:8000:8000"
+    command:
+      - --logging.directory=/var/lib/typedb/logs
+      # Disable usage and error reports that TypeDB sends by default.
+      - --diagnostics.reporting.metrics=false
+      - --diagnostics.reporting.errors=false
     volumes:
-      - fuseki-data:/fuseki/databases
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - >-
-          curl --fail --silent --show-error
-          -H 'Content-Type: application/sparql-query'
-          --data 'ASK {}'
-          http://127.0.0.1:3030/ops/query
-          > /dev/null
-      interval: 5s
-      timeout: 3s
-      retries: 12
-      start_period: 10s
+      - typedb-data:/var/lib/typedb
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
-  fuseki-data:
+  typedb-data:
