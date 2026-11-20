@@ -3,78 +3,80 @@
 A local playground for the ontology-driven observability pattern described by
 [Netflix TechBlog](https://netflixtechblog.com/ontology-driven-observability-building-an-end-to-end-knowledge-graph-at-netflix-scale-421392cf5adf).
 
-This project does not run Netflix's QuipuDB. QuipuDB is described as a
-homegrown Netflix database and its implementation is not available here.
-Instead, this playground uses Apache Jena Fuseki as a local RDF/SPARQL store,
-an operational ontology in RDF/OWL, and SHACL validation before an agent writes
-a finding.
+This project does not run Netflix's QuipuDB, which is not available outside
+Netflix. Instead, it stores a small operational ontology in
+[TypeDB](https://typedb.com/) and lets an AI agent (Claude Code) read and
+write it through an MCP server.
 
 ## What runs
 
-- Apache Jena Fuseki 6.2.0 stores the local knowledge graph.
-- `cmd/ops-mcp` is an MCP server (stdio) that exposes the graph to an MCP
-  client such as Claude Code. The client's model is the agent; no local model
-  or GPU is needed.
-- `describe_ontology` lists the classes and properties stored in the graph, so
-  the agent learns the schema from the data rather than from its prompt.
-- `search_operational_graph` reads incidents and deployments for an
-  application through a fixed SPARQL query.
-- `list_hypotheses` reads hypotheses earlier sessions recorded for an
-  incident, so a later agent can build on them instead of duplicating them.
-- `record_root_cause_hypothesis` accepts structured fields, not SPARQL. Go
-  checks that the incident and deployment exist and target the same
-  application, writes the candidate to a temporary named graph, validates it
-  against SHACL, then promotes it to the default graph.
-- `cmd/seed` loads synthetic operational data. It is safe to run repeatedly.
+- TypeDB CE 3.14.2 stores the knowledge graph. `ontology/schema.tql` defines
+  the ontology: applications, deployments, incidents, and root-cause
+  hypotheses, with constraints such as `@key`, `@card`, `@regex`, `@values`
+  and `@range`. TypeDB rejects writes that violate them.
+- `cmd/ops-mcp` is an MCP server (stdio) for Claude Code or any MCP client.
+  The agent never sends TypeQL; each tool takes typed fields and the server
+  builds fixed queries.
 
-Fuseki is bound to `127.0.0.1` and has no authentication; do not expose this
-demo endpoint to an untrusted network. The MCP server only accepts a loopback
-Fuseki URL.
+| Tool | Kind | Description |
+|---|---|---|
+| `describe_ontology` | read | Returns the TypeDB schema, so the agent learns the ontology from the database |
+| `search_operational_graph` | read | Returns incidents and deployments for an application |
+| `list_hypotheses` | read | Returns hypotheses earlier sessions recorded for an incident |
+| `record_root_cause_hypothesis` | write | Inserts a hypothesis in one transaction; the incident and deployment must share an application |
+
+TypeDB's HTTP API is published only on `127.0.0.1:8000`. The container runs
+as an unprivileged user, and TypeDB's default usage and error reporting is
+turned off in `compose.yaml`. The MCP server only accepts a loopback TypeDB
+URL.
 
 ## Requirements
 
 - Go 1.26.10 or later
 - Docker Compose
-- An MCP client. The steps below use [Claude Code](https://code.claude.com/docs/en/mcp).
+- [Claude Code](https://code.claude.com/docs/en/mcp) and `jq` for the demo
 
 ## Run
 
-Start the local graph store:
+Set the TypeDB credentials. TypeDB CE starts with the vendor default
+`admin` / `password`; use it only for this local sample data.
 
 ```sh
-docker compose up --build -d
+export TYPEDB_USERNAME=admin TYPEDB_PASSWORD=password
 ```
 
-Load the sample graph:
+Start TypeDB and load the ontology and sample data. `make seed` recreates
+the `ops` database, which deletes every recorded hypothesis.
 
 ```sh
-go run ./cmd/seed
+make up
+make seed
 ```
 
-Start Claude Code in this directory. It reads `.mcp.json` and asks whether to
-enable the project's `ops-ontology` server:
+Run the demo. It calls `claude -p` three times (this uses your Claude Code
+quota) and checks the database after each run:
+
+1. Only the read tools are allowed. The agent's write is denied, and no
+   hypothesis exists.
+2. All tools are allowed. The agent records one hypothesis.
+3. All tools are allowed. The agent reads the hypothesis from run 2 and does
+   not record a duplicate.
 
 ```sh
-claude
+make demo
 ```
 
-Try asking:
+The demo passes `--permission-mode dontAsk`, so any tool call that is not
+allowlisted is denied instead of prompting.
 
-> Why did checkout have a SEV-2 incident, and which deployment is a plausible
-> cause? Record a hypothesis with the evidence from the graph.
+To use the server interactively, start `claude` in this directory and enable
+the `ops-ontology` server from `.mcp.json`.
 
-Inspect the graph and issue SPARQL queries at <http://localhost:3030/>.
-The dataset endpoint is `ops`; for example, its query endpoint is
-<http://localhost:3030/ops/query>.
-
-Stop Fuseki without deleting its persisted graph:
+Stop TypeDB without deleting its data:
 
 ```sh
-docker compose down
+make down
 ```
-
-Set `FUSEKI_URL` in `.mcp.json` to point the server at another loopback
-Fuseki dataset.
 
 ## Verify
 
@@ -88,7 +90,7 @@ require Docker or a model.
 ## Scope and limitations
 
 - The data is synthetic and represents one small incident/deployment scenario.
-- SHACL validates the proposed hypothesis shape. It does not prove that the
+- The schema validates the shape of a hypothesis. It does not prove that the
   hypothesis is causally correct; evidence remains visible for human review.
 - This is a local learning sample, not a production incident-management
   system or a QuipuDB compatibility implementation.
@@ -96,7 +98,8 @@ require Docker or a model.
 ## References
 
 - [Netflix: Ontology-Driven Observability](https://netflixtechblog.com/ontology-driven-observability-building-an-end-to-end-knowledge-graph-at-netflix-scale-421392cf5adf)
-- [Apache Jena Fuseki Docker tools](https://jena.apache.org/documentation/fuseki2/fuseki-docker.html)
-- [Apache Jena SHACL](https://jena.apache.org/documentation/shacl)
+- [TypeDB HTTP API](https://typedb.com/docs/reference/typedb-http-api/)
+- [TypeQL annotations](https://typedb.com/docs/typeql-reference/annotations/)
 - [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
 - [Claude Code MCP](https://code.claude.com/docs/en/mcp)
+- [Claude Code headless mode](https://code.claude.com/docs/en/headless)
