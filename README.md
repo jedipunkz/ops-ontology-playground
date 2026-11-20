@@ -15,8 +15,12 @@ a finding.
 - `cmd/ops-mcp` is an MCP server (stdio) that exposes the graph to an MCP
   client such as Claude Code. The client's model is the agent; no local model
   or GPU is needed.
+- `describe_ontology` lists the classes and properties stored in the graph, so
+  the agent learns the schema from the data rather than from its prompt.
 - `search_operational_graph` reads incidents and deployments for an
   application through a fixed SPARQL query.
+- `list_hypotheses` reads hypotheses earlier sessions recorded for an
+  incident, so a later agent can build on them instead of duplicating them.
 - `record_root_cause_hypothesis` accepts structured fields, not SPARQL. Go
   checks that the incident and deployment exist and target the same
   application, writes the candidate to a temporary named graph, validates it
